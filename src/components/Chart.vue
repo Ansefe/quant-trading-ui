@@ -71,6 +71,7 @@ let chart      = null
 let candles    = null
 let priceLines = []     // S/R price lines
 let fvgPrimitive = null // Custom FVG rectangle primitive
+let loadedTimes  = []   // timestamps of loaded candles (for snapping FVG dates)
 
 // ─────────────────────────────────────────────────
 // FVG Rectangle Primitive (draws semi-transparent boxes)
@@ -116,30 +117,36 @@ class FVGBoxPrimitive {
 
     target.useBitmapCoordinateSpace((scope) => {
       const { context: ctx, horizontalPixelRatio: hR, verticalPixelRatio: vR } = scope
-      const ts = this._chart.timeScale()
-      const chartWidth = ts.width()
+      const timeScale = this._chart.timeScale()
+      const chartWidth = timeScale.width()
 
       for (const fvg of this._fvgs) {
         const topY = this._series.priceToCoordinate(fvg.top_price)
         const botY = this._series.priceToCoordinate(fvg.bottom_price)
         if (topY === null || botY === null) continue
 
-        // Convert fvg_date to UNIX seconds for chart coordinate
-        let startX = 0
-        if (fvg.fvg_date) {
-          const ts_sec = Math.floor(new Date(fvg.fvg_date).getTime() / 1000)
-          const coord = ts.timeToCoordinate(ts_sec)
-          if (coord !== null) startX = coord
+        // Snap FVG date to nearest loaded candle timestamp
+        let startX = null
+        if (fvg.fvg_date && loadedTimes.length) {
+          const fvgSec = Math.floor(new Date(fvg.fvg_date).getTime() / 1000)
+          // Binary-ish search for the closest candle time
+          let best = loadedTimes[0]
+          for (const t of loadedTimes) {
+            if (Math.abs(t - fvgSec) < Math.abs(best - fvgSec)) best = t
+          }
+          startX = timeScale.timeToCoordinate(best)
         }
 
-        // Extend to right edge of chart
+        // If we couldn't place it, skip (don't draw from edge 0)
+        if (startX === null || startX < 0) continue
+
         const endX = chartWidth
         if (endX <= startX) continue
 
         const isBull = fvg.type?.includes('ALCISTA')
         ctx.fillStyle = isBull
-          ? 'rgba(16, 185, 129, 0.12)'   // green
-          : 'rgba(239, 68, 68, 0.12)'     // red
+          ? 'rgba(16, 185, 129, 0.07)'
+          : 'rgba(239, 68, 68, 0.07)'
 
         const y = Math.min(topY, botY) * vR
         const h = Math.abs(botY - topY) * vR
@@ -148,25 +155,24 @@ class FVGBoxPrimitive {
 
         ctx.fillRect(x, y, w, h)
 
-        // Draw top and bottom border lines
+        // Subtle top and bottom border
         ctx.strokeStyle = isBull
-          ? 'rgba(16, 185, 129, 0.35)'
-          : 'rgba(239, 68, 68, 0.35)'
+          ? 'rgba(16, 185, 129, 0.22)'
+          : 'rgba(239, 68, 68, 0.22)'
         ctx.lineWidth = 1
-        ctx.setLineDash([4, 4])
+        ctx.setLineDash([3, 3])
         ctx.beginPath()
-        ctx.moveTo(x, y);           ctx.lineTo(x + w, y)
-        ctx.moveTo(x, y + h);       ctx.lineTo(x + w, y + h)
+        ctx.moveTo(x, y);       ctx.lineTo(x + w, y)
+        ctx.moveTo(x, y + h);   ctx.lineTo(x + w, y + h)
         ctx.stroke()
         ctx.setLineDash([])
 
-        // Small label at start
+        // Small label at origin
         ctx.fillStyle = isBull
-          ? 'rgba(16, 185, 129, 0.7)'
-          : 'rgba(239, 68, 68, 0.7)'
+          ? 'rgba(16, 185, 129, 0.55)'
+          : 'rgba(239, 68, 68, 0.55)'
         ctx.font = `${9 * vR}px sans-serif`
-        const label = `FVG ${isBull ? '↑' : '↓'} ${fvg.timeframe || ''}`
-        ctx.fillText(label, x + 4 * hR, y + 11 * vR)
+        ctx.fillText(`FVG ${isBull ? '↑' : '↓'} ${fvg.timeframe || ''}`, x + 3 * hR, y + 10 * vR)
       }
     })
   }
@@ -251,6 +257,9 @@ async function loadBinance() {
       low:   parseFloat(k[3]),
       close: parseFloat(k[4]),
     }))
+
+    // Store timestamps so FVG primitive can snap dates to nearest candle
+    loadedTimes = formatted.map(c => c.time)
 
     candles.setData(formatted)
     chart.timeScale().fitContent()

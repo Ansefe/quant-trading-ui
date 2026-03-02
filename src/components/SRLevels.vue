@@ -5,23 +5,23 @@
       <span v-if="loading" class="w-3 h-3 rounded-full border-2 border-[#3b82f6] border-t-transparent animate-spin" />
     </div>
 
-    <!-- Touch filter (shared with chart via global filters) -->
+    <!-- Touch filter: slider range -->
     <div>
-      <p class="text-[10px] uppercase tracking-widest text-[#475569] mb-1">
-        Mín. toques: <span class="text-[#3b82f6] font-bold">×{{ filters.minTouches }}+</span>
-      </p>
-      <div class="flex items-center gap-1">
-        <button
-          v-for="n in [1,2,3,5,8]"
-          :key="n"
-          @click="filters.minTouches = n"
-          :class="[
-            'text-[10px] font-medium px-2 py-0.5 rounded transition-all',
-            filters.minTouches === n
-              ? 'bg-[#3b82f6] text-white'
-              : 'bg-[#1e2d45] text-[#94a3b8] hover:bg-[#2a3f60]'
-          ]"
-        >×{{ n }}+</button>
+      <div class="flex items-center justify-between">
+        <p class="text-[10px] uppercase tracking-widest text-[#475569]">Mín. toques</p>
+        <span class="text-xs font-bold text-[#3b82f6]">×{{ filters.minTouches }}+</span>
+      </div>
+      <input
+        type="range"
+        :min="1"
+        :max="maxTouches"
+        :value="filters.minTouches"
+        @input="filters.minTouches = Number($event.target.value)"
+        class="w-full h-1 mt-1 appearance-none rounded-full bg-[#1e2d45] cursor-pointer accent-[#3b82f6]"
+      />
+      <div class="flex justify-between text-[9px] text-[#475569] mt-0.5">
+        <span>1</span>
+        <span>{{ maxTouches }}</span>
       </div>
     </div>
 
@@ -88,7 +88,11 @@ const props = defineProps({
   loading: { type: Boolean, default: false }
 })
 
-// Filter by global minTouches — changes are reflected in the chart automatically
+// Dynamic max — adapts to whatever data is loaded
+const maxTouches = computed(() =>
+  Math.max(1, ...props.levels.map(l => l.touches || 1))
+)
+
 const filtered = computed(() =>
   props.levels.filter(l => (l.touches || 1) >= filters.minTouches)
 )

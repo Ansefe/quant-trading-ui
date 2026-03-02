@@ -156,7 +156,7 @@ export function useSentiment() {
 
     const { data } = await supabase
       .from('sentiment_analysis')
-      .select('*')
+      .select('id, created_at, symbol, sentiment, confidence, summary, sentiment_news, confidence_news, summary_news, sentiment_technical, confidence_technical, summary_technical, indicators')
       .eq('symbol', assetName)
       .order('created_at', { ascending: false })
       .limit(1)

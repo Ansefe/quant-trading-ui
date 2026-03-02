@@ -1,9 +1,16 @@
 <template>
-  <div class="glass rounded-xl p-4 flex flex-col gap-2 h-full">
-    <div class="flex items-center justify-between mb-1">
+  <div class="glass rounded-xl overflow-hidden">
+    <!-- Collapsible header -->
+    <button @click="open = !open"
+      class="w-full flex items-center justify-between px-4 py-3 hover:bg-white/[0.02] transition-colors">
       <p class="text-xs font-semibold text-[#e2e8f0] tracking-wide">🧱 Muros ATR</p>
-      <span v-if="loading" class="w-3 h-3 rounded-full border-2 border-[#3b82f6] border-t-transparent animate-spin" />
-    </div>
+      <div class="flex items-center gap-2">
+        <span v-if="loading" class="w-3 h-3 rounded-full border-2 border-[#3b82f6] border-t-transparent animate-spin" />
+        <span class="text-[10px] text-[#475569] transition-transform" :class="open ? '' : '-rotate-90'">▾</span>
+      </div>
+    </button>
+
+    <div v-show="open" class="px-4 pb-4 flex flex-col gap-2">
 
     <!-- Touch filter: slider range -->
     <div>
@@ -76,12 +83,14 @@
     <p class="text-[9px] text-[#475569] pt-1 border-t border-[#1e2d45]">
       {{ filtered.length }} muros · ×{{ filters.minTouches }}+ toques
     </p>
+    </div>
   </div>
-</template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import { filters } from '../composables/useMarketData.js'
+
+const open = ref(true)
 
 const props = defineProps({
   levels:  { type: Array, default: () => [] },

@@ -1,9 +1,15 @@
 <template>
-  <div class="glass rounded-xl p-4 flex flex-col gap-2 h-full">
-    <div class="flex items-center justify-between mb-1">
+  <div class="glass rounded-xl overflow-hidden">
+    <button @click="open = !open"
+      class="w-full flex items-center justify-between px-4 py-3 hover:bg-white/[0.02] transition-colors">
       <p class="text-xs font-semibold text-[#e2e8f0] tracking-wide">📡 Divergencias RSI</p>
-      <span v-if="loading" class="w-3 h-3 rounded-full border-2 border-[#3b82f6] border-t-transparent animate-spin" />
-    </div>
+      <div class="flex items-center gap-2">
+        <span v-if="loading" class="w-3 h-3 rounded-full border-2 border-[#3b82f6] border-t-transparent animate-spin" />
+        <span class="text-[10px] text-[#475569] transition-transform" :class="open ? '' : '-rotate-90'">▾</span>
+      </div>
+    </button>
+
+    <div v-show="open" class="px-4 pb-4 flex flex-col gap-1.5">
 
     <div v-if="!divergences.length && !loading" class="flex-1 flex items-center justify-center">
       <p class="text-xs text-[#475569]">No hay divergencias detectadas.</p>
@@ -39,10 +45,16 @@
         </div>
       </div>
     </div>
+    </div>
+    </div>
   </div>
 </template>
 
 <script setup>
+import { ref } from 'vue'
+
+const open = ref(true)
+
 const props = defineProps({
   divergences: { type: Array, default: () => [] },
   loading: { type: Boolean, default: false }

@@ -3,16 +3,28 @@
     <!-- Collapsible header -->
     <button @click="open = !open"
       class="w-full flex items-center justify-between px-4 py-3 hover:bg-white/[0.02] transition-colors">
-      <div class="flex items-center gap-2">
-        <p class="text-xs font-semibold text-[#e2e8f0] tracking-wide">📊 Sentimiento IA</p>
-        <span class="text-[9px] px-1.5 py-0.5 rounded bg-[#1e2d45] text-[#94a3b8] font-mono">1D</span>
-      </div>
+      <p class="text-xs font-semibold text-[#e2e8f0] tracking-wide">📊 Sentimiento IA</p>
       <span class="text-[10px] text-[#475569] transition-transform" :class="open ? '' : '-rotate-90'">▾</span>
     </button>
 
     <div v-show="open" class="px-4 pb-4 flex flex-col gap-3">
+
+      <!-- TF Selector -->
+      <div class="flex items-center gap-0.5">
+        <button
+          v-for="tf in TFS" :key="tf"
+          @click="sentimentTf.value = tf"
+          :class="[
+            'text-[9px] font-bold px-1.5 py-0.5 rounded transition-all',
+            sentimentTf.value === tf
+              ? 'bg-[#3b82f6] text-white'
+              : 'text-[#475569] hover:text-[#94a3b8] hover:bg-[#1e2d45]'
+          ]"
+        >{{ tf }}</button>
+      </div>
+
       <div v-if="!sentiment && !loading" class="flex items-center justify-center py-4">
-        <p class="text-xs text-[#475569]">Sin datos de sentimiento.</p>
+        <p class="text-xs text-[#475569]">Sin datos para {{ sentimentTf.value }}.</p>
       </div>
 
       <template v-if="sentiment">
@@ -96,9 +108,15 @@
           </div>
         </div>
 
-        <p class="text-[9px] text-[#475569]">
-          {{ formatDate(sentiment.created_at) }}
-        </p>
+        <!-- TF badge + date -->
+        <div class="flex items-center justify-between">
+          <span class="text-[9px] px-1.5 py-0.5 rounded bg-[#1e2d45] text-[#94a3b8] font-mono">
+            {{ sentiment.timeframe || '1d' }}
+          </span>
+          <p class="text-[9px] text-[#475569]">
+            {{ formatDate(sentiment.created_at) }}
+          </p>
+        </div>
       </template>
     </div>
   </div>
@@ -107,9 +125,12 @@
 <script setup>
 import { ref, computed } from 'vue'
 
+const TFS = ['15m', '1h', '4h', '1d', '1w']
+
 const props = defineProps({
   sentiment: { type: Object, default: null },
-  loading: { type: Boolean, default: false }
+  loading: { type: Boolean, default: false },
+  sentimentTf: { type: Object, required: true }  // ref from composable
 })
 
 const open = ref(true)

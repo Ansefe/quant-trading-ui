@@ -139,35 +139,49 @@ export function useFVGs() {
 }
 
 // ──────────────────────────────────────────────────
-// Sentiment
+// Sentiment (per-TF support)
 // ──────────────────────────────────────────────────
 export function useSentiment() {
   const sentiment = ref(null)
   const loading = ref(false)
+  const sentimentTf = ref('1d')  // default TF
 
   async function fetch() {
     loading.value = true
-    // sentiment uses asset names not symbol pairs — map the symbol
     const assetMap = {
       'BTC/USDT': 'Bitcoin', 'ETH/USDT': 'Ethereum',
       'SOL/USDT': 'Solana', 'BNB/USDT': 'Binance Coin', 'XRP/USDT': 'XRP'
     }
     const assetName = assetMap[filters.symbol] || filters.symbol
 
-    const { data } = await supabase
+    // Try fetching with timeframe filter first (new data)
+    let { data } = await supabase
       .from('sentiment_analysis')
-      .select('id, created_at, symbol, sentiment, confidence, summary, sentiment_news, confidence_news, summary_news, sentiment_technical, confidence_technical, summary_technical, indicators')
+      .select('id, created_at, symbol, timeframe, sentiment, confidence, summary, sentiment_news, confidence_news, summary_news, sentiment_technical, confidence_technical, summary_technical, indicators')
       .eq('symbol', assetName)
+      .eq('timeframe', sentimentTf.value)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
+
+    // Fallback: if no per-TF data exists, get latest without TF filter (legacy rows)
+    if (!data) {
+      const fallback = await supabase
+        .from('sentiment_analysis')
+        .select('id, created_at, symbol, timeframe, sentiment, confidence, summary, sentiment_news, confidence_news, summary_news, sentiment_technical, confidence_technical, summary_technical, indicators')
+        .eq('symbol', assetName)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      data = fallback.data
+    }
 
     if (data) sentiment.value = data
     loading.value = false
   }
 
-  watch(() => filters.symbol, fetch, { immediate: true })
-  return { sentiment, loading, fetch }
+  watch(() => [filters.symbol, sentimentTf.value], fetch, { immediate: true })
+  return { sentiment, loading, sentimentTf, fetch }
 }
 
 // ──────────────────────────────────────────────────

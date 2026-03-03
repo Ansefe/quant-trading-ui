@@ -87,7 +87,7 @@
 
       <!-- RIGHT SIDEBAR: SR Levels + FVGs + Sentiment -->
       <aside class="w-64 flex-shrink-0 p-3 space-y-3 border-l border-[#1e2d45] overflow-y-auto">
-        <SentimentWidget :sentiment="sentiment" :loading="sentLoading" />
+        <SentimentWidget :sentiment="sentiment" :loading="sentLoading" :sentimentTf="sentimentTf" />
         <SRLevels :levels="levels" :loading="srLoading" />
         <FVGList :fvgs="fvgs" :loading="fvgLoading" />
       </aside>
@@ -119,7 +119,7 @@ import {
 const { levels, loading: srLoading, fetch: fetchSR } = useSRLevels()
 const { divergences, loading: divLoading, fetch: fetchDiv } = useDivergences()
 const { fvgs, loading: fvgLoading, fetch: fetchFVG } = useFVGs()
-const { sentiment, loading: sentLoading, fetch: fetchSent } = useSentiment()
+const { sentiment, loading: sentLoading, sentimentTf, fetch: fetchSent } = useSentiment()
 const { confluences, fetch: fetchConf } = useConfluences()
 
 // Micro confluences are recalculated whenever visible data changes

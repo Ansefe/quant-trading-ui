@@ -13,10 +13,10 @@
       <div class="flex items-center gap-0.5">
         <button
           v-for="tf in TFS" :key="tf"
-          @click="sentimentTf.value = tf"
+          @click="sentimentTf = tf"
           :class="[
             'text-[9px] font-bold px-1.5 py-0.5 rounded transition-all',
-            sentimentTf.value === tf
+            sentimentTf === tf
               ? 'bg-[#3b82f6] text-white'
               : 'text-[#475569] hover:text-[#94a3b8] hover:bg-[#1e2d45]'
           ]"
@@ -24,7 +24,7 @@
       </div>
 
       <div v-if="!sentiment && !loading" class="flex items-center justify-center py-4">
-        <p class="text-xs text-[#475569]">Sin datos para {{ sentimentTf.value }}.</p>
+        <p class="text-xs text-[#475569]">Sin datos para {{ sentimentTf }}.</p>
       </div>
 
       <template v-if="sentiment">
@@ -124,13 +124,13 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import { sentimentTf } from '../composables/useMarketData.js'
 
 const TFS = ['15m', '1h', '4h', '1d', '1w']
 
 const props = defineProps({
   sentiment: { type: Object, default: null },
-  loading: { type: Boolean, default: false },
-  sentimentTf: { type: Object, required: true }  // ref from composable
+  loading: { type: Boolean, default: false }
 })
 
 const open = ref(true)

@@ -145,8 +145,8 @@ class FVGBoxPrimitive {
 
         const isBull = fvg.type?.includes('ALCISTA')
         ctx.fillStyle = isBull
-          ? 'rgba(16, 185, 129, 0.02)'
-          : 'rgba(239, 68, 68, 0.01)'
+          ? 'rgba(16, 185, 129, 0.17)'
+          : 'rgba(239, 68, 68, 0.1)'
 
         const y = Math.min(topY, botY) * vR
         const h = Math.abs(botY - topY) * vR
@@ -157,8 +157,8 @@ class FVGBoxPrimitive {
 
         // Subtle top and bottom border
         ctx.strokeStyle = isBull
-          ? 'rgba(16, 185, 129, 0.02)'
-          : 'rgba(239, 68, 68, 0.01)'
+          ? 'rgba(16, 185, 129, 0.17)'
+          : 'rgba(239, 68, 68, 0.1)'
         ctx.lineWidth = 1
         ctx.setLineDash([3, 3])
         ctx.beginPath()

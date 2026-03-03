@@ -141,10 +141,11 @@ export function useFVGs() {
 // ──────────────────────────────────────────────────
 // Sentiment (per-TF support)
 // ──────────────────────────────────────────────────
+export const sentimentTf = ref('1d')  // module-level shared ref
+
 export function useSentiment() {
   const sentiment = ref(null)
   const loading = ref(false)
-  const sentimentTf = ref('1d')  // default TF
 
   async function fetch() {
     loading.value = true

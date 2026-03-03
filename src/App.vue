@@ -86,7 +86,7 @@
       </main>
 
       <!-- RIGHT SIDEBAR: SR Levels + FVGs + Sentiment -->
-      <aside class="w-64 flex-shrink-0 flex flex-col gap-3 p-3 border-l border-[#1e2d45] overflow-y-auto">
+      <aside class="w-64 flex-shrink-0 p-3 space-y-3 border-l border-[#1e2d45] overflow-y-auto">
         <SentimentWidget :sentiment="sentiment" :loading="sentLoading" />
         <SRLevels :levels="levels" :loading="srLoading" />
         <FVGList :fvgs="fvgs" :loading="fvgLoading" />

@@ -3,7 +3,10 @@
     <!-- Collapsible header -->
     <button @click="open = !open"
       class="w-full flex items-center justify-between px-4 py-3 hover:bg-white/[0.02] transition-colors">
-      <p class="text-xs font-semibold text-[#e2e8f0] tracking-wide">📊 Sentimiento IA</p>
+      <div class="flex items-center gap-2">
+        <p class="text-xs font-semibold text-[#e2e8f0] tracking-wide">📊 Sentimiento IA</p>
+        <span class="text-[9px] px-1.5 py-0.5 rounded bg-[#1e2d45] text-[#94a3b8] font-mono">1D</span>
+      </div>
       <span class="text-[10px] text-[#475569] transition-transform" :class="open ? '' : '-rotate-90'">▾</span>
     </button>
 

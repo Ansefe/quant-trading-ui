@@ -145,8 +145,8 @@ class FVGBoxPrimitive {
 
         const isBull = fvg.type?.includes('ALCISTA')
         ctx.fillStyle = isBull
-          ? 'rgba(16, 185, 129, 0.07)'
-          : 'rgba(239, 68, 68, 0.07)'
+          ? 'rgba(16, 185, 129, 0.02)'
+          : 'rgba(239, 68, 68, 0.01)'
 
         const y = Math.min(topY, botY) * vR
         const h = Math.abs(botY - topY) * vR
@@ -157,8 +157,8 @@ class FVGBoxPrimitive {
 
         // Subtle top and bottom border
         ctx.strokeStyle = isBull
-          ? 'rgba(16, 185, 129, 0.22)'
-          : 'rgba(239, 68, 68, 0.22)'
+          ? 'rgba(16, 185, 129, 0.02)'
+          : 'rgba(239, 68, 68, 0.01)'
         ctx.lineWidth = 1
         ctx.setLineDash([3, 3])
         ctx.beginPath()
@@ -291,7 +291,7 @@ function drawSRLines() {
     const pl = candles.createPriceLine({
       price:            level.price_level,
       color,
-      lineWidth:        Math.min(3, 1 + Math.floor(touches / 4)),
+      lineWidth:        Math.min(4, 2 + Math.floor(touches / 4)),
       lineStyle:        LineStyle.Dashed,
       axisLabelVisible: true,
       title:            `${level.is_support ? 'S' : 'R'} [${tfStr}] ×${touches}`,

@@ -14,14 +14,28 @@
       </div>
 
       <div class="flex items-center gap-4">
+        <!-- View Toggle -->
+        <div class="flex bg-[#0f1729] rounded-lg border border-[#1e2d45] p-0.5">
+          <button @click="activeView = 'dashboard'"
+            :class="['text-[10px] font-bold px-3 py-1 rounded-md transition-all',
+                     activeView === 'dashboard' ? 'bg-[#3b82f6] text-white' : 'text-[#475569] hover:text-[#94a3b8]']">
+            📊 Dashboard
+          </button>
+          <button @click="activeView = 'backtest'"
+            :class="['text-[10px] font-bold px-3 py-1 rounded-md transition-all',
+                     activeView === 'backtest' ? 'bg-[#8b5cf6] text-white' : 'text-[#475569] hover:text-[#94a3b8]']">
+            🧪 Backtester
+          </button>
+        </div>
+
         <!-- Current symbol pill -->
-        <div class="flex items-center gap-2 px-3 py-1 rounded-full bg-[#1e2d45] border border-[#2a3f60]">
+        <div v-if="activeView === 'dashboard'" class="flex items-center gap-2 px-3 py-1 rounded-full bg-[#1e2d45] border border-[#2a3f60]">
           <div class="live-dot" />
           <span class="text-xs font-bold text-[#e2e8f0]">{{ filters.symbol }}</span>
         </div>
 
         <!-- TF badges -->
-        <div class="hidden md:flex items-center gap-1">
+        <div v-if="activeView === 'dashboard'" class="hidden md:flex items-center gap-1">
           <span v-for="tf in filters.timeframes" :key="tf" class="tf-pill active text-[10px]">{{ tf }}</span>
         </div>
 
@@ -30,8 +44,11 @@
       </div>
     </header>
 
-    <!-- Main Dashboard Body -->
-    <div class="flex flex-1 overflow-hidden gap-0">
+    <!-- BACKTESTER VIEW -->
+    <BacktestSimulator v-if="activeView === 'backtest'" class="flex-1 overflow-hidden" />
+
+    <!-- DASHBOARD VIEW -->
+    <div v-else class="flex flex-1 overflow-hidden gap-0">
 
       <!-- LEFT SIDEBAR: Filters + Confluences -->
       <aside class="w-64 flex-shrink-0 flex flex-col gap-3 p-3 border-r border-[#1e2d45] overflow-y-auto">
@@ -105,6 +122,9 @@ import Divergences from './components/Divergences.vue'
 import FVGList from './components/FVGList.vue'
 import SentimentWidget from './components/SentimentWidget.vue'
 import ConfluencePanel from './components/ConfluencePanel.vue'
+import BacktestSimulator from './components/BacktestSimulator.vue'
+
+const activeView = ref('dashboard')  // 'dashboard' | 'backtest'
 
 import {
   filters,

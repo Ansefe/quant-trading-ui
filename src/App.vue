@@ -26,6 +26,11 @@
                      activeView === 'backtest' ? 'bg-[#8b5cf6] text-white' : 'text-[#475569] hover:text-[#94a3b8]']">
             🧪 Backtester
           </button>
+          <button @click="activeView = 'live'"
+            :class="['text-[10px] font-bold px-3 py-1 rounded-md transition-all',
+                     activeView === 'live' ? 'bg-gradient-to-r from-[#10b981] to-[#06b6d4] text-white' : 'text-[#475569] hover:text-[#94a3b8]']">
+            📡 Live Trading
+          </button>
         </div>
 
         <!-- Current symbol pill -->
@@ -46,6 +51,9 @@
 
     <!-- BACKTESTER VIEW -->
     <BacktestSimulator v-if="activeView === 'backtest'" class="flex-1 overflow-hidden" />
+
+    <!-- LIVE TRADING VIEW -->
+    <LiveTrading v-else-if="activeView === 'live'" class="flex-1 overflow-hidden" />
 
     <!-- DASHBOARD VIEW -->
     <div v-else class="flex flex-1 overflow-hidden gap-0">
@@ -123,8 +131,9 @@ import FVGList from './components/FVGList.vue'
 import SentimentWidget from './components/SentimentWidget.vue'
 import ConfluencePanel from './components/ConfluencePanel.vue'
 import BacktestSimulator from './components/BacktestSimulator.vue'
+import LiveTrading from './components/LiveTrading.vue'
 
-const activeView = ref('dashboard')  // 'dashboard' | 'backtest'
+const activeView = ref('dashboard')  // 'dashboard' | 'backtest' | 'live'
 
 import {
   filters,

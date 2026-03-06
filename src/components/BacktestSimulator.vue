@@ -73,17 +73,51 @@
         </div>
       </div>
 
-      <!-- Min Touches -->
-      <div>
-        <label class="block text-[10px] text-[#94a3b8] uppercase font-bold mb-1">Min. Toques S/R</label>
-        <div class="flex gap-1">
-          <button v-for="t in [2,3,4,5,6]" :key="t" @click="params.min_touches = t"
-            :class="['text-[11px] font-bold px-3 py-1.5 rounded-lg transition-all flex-1',
-                     params.min_touches === t
-                       ? 'bg-[#f59e0b] text-black'
-                       : 'text-[#475569] hover:text-[#94a3b8] bg-[#0f1729] border border-[#1e2d45]']">
-            {{ t }}
-          </button>
+      <!-- Filtros Institucionales S/R -->
+      <div class="space-y-3 p-3 rounded-xl border border-[#f59e0b]/20 bg-[#f59e0b]/5">
+        <p class="text-[10px] text-[#f59e0b] uppercase font-bold">🏛️ Filtros Institucionales S/R</p>
+
+        <!-- Global Min Touches -->
+        <div>
+          <label class="block text-[10px] text-[#94a3b8] uppercase font-bold mb-1">Toques Totales Mínimos</label>
+          <div class="flex gap-1">
+            <button v-for="t in [2,3,4,5,6,8]" :key="t" @click="params.global_min_touches = t"
+              :class="['text-[11px] font-bold px-2.5 py-1.5 rounded-lg transition-all flex-1',
+                       params.global_min_touches === t
+                         ? 'bg-[#f59e0b] text-black'
+                         : 'text-[#475569] hover:text-[#94a3b8] bg-[#0f1729] border border-[#1e2d45]']">
+              {{ t }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Mandatory TFs -->
+        <div>
+          <label class="block text-[10px] text-[#94a3b8] uppercase font-bold mb-1">TFs Obligatorios en Confluencia</label>
+          <div class="flex gap-1">
+            <label v-for="tf in ['15m','1h','4h','1d','1w']" :key="tf"
+              :class="['text-[10px] font-bold px-2.5 py-1.5 rounded-lg transition-all flex-1 text-center cursor-pointer select-none',
+                       params.mandatory_tfs.includes(tf)
+                         ? 'bg-[#10b981] text-white'
+                         : 'text-[#475569] hover:text-[#94a3b8] bg-[#0f1729] border border-[#1e2d45]']">
+              <input type="checkbox" :value="tf" v-model="params.mandatory_tfs" class="hidden">
+              {{ tf }}
+            </label>
+          </div>
+          <p class="text-[9px] text-[#475569] mt-0.5">El muro DEBE existir en estas temporalidades</p>
+        </div>
+
+        <!-- Min touches by TF -->
+        <div>
+          <label class="block text-[10px] text-[#94a3b8] uppercase font-bold mb-1">Mín. Toques por TF</label>
+          <div class="grid grid-cols-5 gap-1">
+            <div v-for="tf in ['15m','1h','4h','1d','1w']" :key="tf" class="text-center">
+              <span class="block text-[9px] text-[#64748b] mb-0.5">{{ tf }}</span>
+              <input v-model.number="params.min_touches_by_tf[tf]" type="number" min="0" max="20" step="1"
+                class="w-full bg-[#0f1729] border border-[#1e2d45] rounded px-1 py-1 text-[11px] text-[#e2e8f0] font-mono text-center focus:border-[#f59e0b] outline-none">
+            </div>
+          </div>
+          <p class="text-[9px] text-[#475569] mt-0.5">0 = sin requisito para esa temporalidad</p>
         </div>
       </div>
 
@@ -274,7 +308,9 @@ const params = ref({
   stop_loss_pct: 1.0,
   leverage: 5,
   scan_interval: 10,
-  min_touches: 3,
+  global_min_touches: 3,
+  mandatory_tfs: ['1h'],
+  min_touches_by_tf: { '15m': 0, '1h': 0, '4h': 1, '1d': 0, '1w': 0 },
   proximity_pct: 1.0,
   require_divergence: 'off',
   divergence_max_tf: 'any',
@@ -356,13 +392,20 @@ async function runBacktest() {
     progress.value = 30
     progressText.value = 'Corriendo scanners multi-TF y simulación...'
 
+    // Clean min_touches_by_tf: only send entries > 0
+    const cleanTouchesByTf = Object.fromEntries(
+      Object.entries(params.value.min_touches_by_tf).filter(([, v]) => v > 0)
+    )
+
     const body = {
       dataset_dir: selectedDataset.value,
       take_profit_pct: params.value.take_profit_pct,
       stop_loss_pct: params.value.stop_loss_pct,
       leverage: params.value.leverage,
       scan_interval: params.value.scan_interval,
-      min_touches: params.value.min_touches,
+      global_min_touches: params.value.global_min_touches,
+      mandatory_tfs: params.value.mandatory_tfs,
+      min_touches_by_tf: cleanTouchesByTf,
       proximity_pct: params.value.proximity_pct,
       require_divergence: params.value.require_divergence,
       divergence_max_tf: params.value.divergence_max_tf,

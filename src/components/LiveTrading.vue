@@ -396,7 +396,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { createChart, CandlestickSeries, LineSeries, createSeriesMarkers } from 'lightweight-charts'
 
 const WS_URL = 'ws://localhost:8877/ws/live-feed'
@@ -421,11 +421,62 @@ const showEMA = ref(true)
 const showRSI = ref(false)
 const candleCountdown = ref('')
 
+// ── Chart refs ──
+const chartEl = ref(null)
+const rsiChartEl = ref(null)
+let chart = null
+let candleSeries = null
+let ema20Line = null
+let ema50Line = null
+let ema200Line = null
+let rsiChart = null
+let rsiSeries = null
+let markers = []
+let chartResizeObs = null  // store for cleanup
+let rsiResizeObs = null
+
 // S/R Visualization (right panel)
 const srLevels = ref([])
 const srVisMinTouches = ref(3)
 const srDrawOnChart = ref(true)
 let srPriceLines = []  // track chart price lines for cleanup
+
+// ── LocalStorage Persistence ──
+const LS_KEY = 'live-trading-config'
+const LS_UI_KEY = 'live-trading-ui'
+
+function loadFromStorage() {
+  try {
+    const raw = localStorage.getItem(LS_KEY)
+    if (raw) {
+      const saved = JSON.parse(raw)
+      // Merge saved values into config (preserve structure)
+      Object.assign(config.value, saved)
+    }
+    const uiRaw = localStorage.getItem(LS_UI_KEY)
+    if (uiRaw) {
+      const ui = JSON.parse(uiRaw)
+      if (ui.showEMA !== undefined) showEMA.value = ui.showEMA
+      if (ui.showRSI !== undefined) showRSI.value = ui.showRSI
+      if (ui.currentTF) currentTF.value = ui.currentTF
+      if (ui.srVisMinTouches !== undefined) srVisMinTouches.value = ui.srVisMinTouches
+      if (ui.srDrawOnChart !== undefined) srDrawOnChart.value = ui.srDrawOnChart
+    }
+  } catch (e) { /* ignore corrupt data */ }
+}
+
+function saveToStorage() {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(config.value))
+    localStorage.setItem(LS_UI_KEY, JSON.stringify({
+      showEMA: showEMA.value,
+      showRSI: showRSI.value,
+      currentTF: currentTF.value,
+      srVisMinTouches: srVisMinTouches.value,
+      srDrawOnChart: srDrawOnChart.value,
+    }))
+  } catch (e) { /* ignore */ }
+}
 
 // S/R Computed properties
 const srVisMaxTouches = computed(() => Math.max(1, ...srLevels.value.map(l => l.touches || 1)))
@@ -505,17 +556,6 @@ function toggleMandatoryTF(tf) {
   else config.value.mandatory_tfs.push(tf)
 }
 
-// ── Chart refs ──
-const chartEl = ref(null)
-const rsiChartEl = ref(null)
-let chart = null
-let candleSeries = null
-let ema20Line = null
-let ema50Line = null
-let ema200Line = null
-let rsiChart = null
-let rsiSeries = null
-let markers = []
 
 // ── Candle Countdown ──
 const TF_SECONDS = { '5m': 300, '15m': 900, '1h': 3600, '4h': 14400, '1d': 86400, '1w': 604800 }
@@ -763,13 +803,14 @@ function initChart() {
   ema50Line = chart.addSeries(LineSeries, { color: '#3b82f6', lineWidth: 1, priceLineVisible: false, lastValueVisible: false })
   ema200Line = chart.addSeries(LineSeries, { color: '#8b5cf6', lineWidth: 1, priceLineVisible: false, lastValueVisible: false })
 
-  // Handle resize
-  const resizeObserver = new ResizeObserver(() => {
+  // Handle resize (store ref for cleanup)
+  if (chartResizeObs) chartResizeObs.disconnect()
+  chartResizeObs = new ResizeObserver(() => {
     if (chart && chartEl.value) {
-      chart.applyOptions({ width: chartEl.value.clientWidth, height: chartEl.value.clientHeight })
+      try { chart.applyOptions({ width: chartEl.value.clientWidth, height: chartEl.value.clientHeight }) } catch(e) {}
     }
   })
-  resizeObserver.observe(chartEl.value)
+  chartResizeObs.observe(chartEl.value)
 }
 
 function initRSIChart() {
@@ -788,28 +829,47 @@ function initRSIChart() {
     color: '#8b5cf6', lineWidth: 1.5, priceLineVisible: false, lastValueVisible: true
   })
 
-  const resizeObserver = new ResizeObserver(() => {
+  // ── Sync time scales between main chart and RSI chart ──
+  let isSyncing = false
+  chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+    if (isSyncing || !rsiChart) return
+    isSyncing = true
+    try { rsiChart.timeScale().setVisibleLogicalRange(range) } catch(e) {}
+    isSyncing = false
+  })
+  rsiChart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+    if (isSyncing || !chart) return
+    isSyncing = true
+    try { chart.timeScale().setVisibleLogicalRange(range) } catch(e) {}
+    isSyncing = false
+  })
+
+  if (rsiResizeObs) rsiResizeObs.disconnect()
+  rsiResizeObs = new ResizeObserver(() => {
     if (rsiChart && rsiChartEl.value) {
-      rsiChart.applyOptions({ width: rsiChartEl.value.clientWidth, height: rsiChartEl.value.clientHeight })
+      try { rsiChart.applyOptions({ width: rsiChartEl.value.clientWidth, height: rsiChartEl.value.clientHeight }) } catch(e) {}
     }
   })
-  resizeObserver.observe(rsiChartEl.value)
+  rsiResizeObs.observe(rsiChartEl.value)
 }
 
 function renderFullChart(chartData) {
   if (!candleSeries || !chartData) return
 
+  // Helper: deduplicate + sort ascending by time
+  const dedup = (arr) => {
+    if (!arr || !arr.length) return []
+    const map = new Map()
+    for (const item of arr) {
+      map.set(item.time, item)  // last wins for same time
+    }
+    return Array.from(map.values()).sort((a, b) => a.time - b.time)
+  }
+
   const { candles, indicators } = chartData
 
   if (candles && candles.length) {
-    // Deduplicate and sort by time
-    const seen = new Set()
-    const unique = candles.filter(c => {
-      if (seen.has(c.time)) return false
-      seen.add(c.time)
-      return true
-    }).sort((a, b) => a.time - b.time)
-
+    const unique = dedup(candles)
     candleSeries.setData(unique)
     currentPrice.value = unique[unique.length - 1]?.close || currentPrice.value
   }
@@ -822,18 +882,18 @@ function renderFullChart(chartData) {
 
   // Set EMA lines
   if (indicators) {
-    if (indicators.ema_20 && showEMA.value) ema20Line.setData(indicators.ema_20)
+    if (indicators.ema_20 && showEMA.value) ema20Line.setData(dedup(indicators.ema_20))
     else ema20Line.setData([])
 
-    if (indicators.ema_50 && showEMA.value) ema50Line.setData(indicators.ema_50)
+    if (indicators.ema_50 && showEMA.value) ema50Line.setData(dedup(indicators.ema_50))
     else ema50Line.setData([])
 
-    if (indicators.ema_200 && showEMA.value) ema200Line.setData(indicators.ema_200)
+    if (indicators.ema_200 && showEMA.value) ema200Line.setData(dedup(indicators.ema_200))
     else ema200Line.setData([])
 
     // RSI
     if (indicators.rsi && rsiSeries && showRSI.value) {
-      rsiSeries.setData(indicators.rsi)
+      rsiSeries.setData(dedup(indicators.rsi))
     }
   }
 
@@ -855,30 +915,51 @@ function addMarker(time, type, price, text) {
 }
 
 // ── Watchers ──
-watch(showEMA, () => requestCandles())
+watch(showEMA, () => { saveToStorage(); requestCandles() })
 watch(showRSI, async (val) => {
+  saveToStorage()
   if (val) {
     await nextTick()
     initRSIChart()
   }
   requestCandles()
 })
-watch(srVisMinTouches, () => drawSRPriceLines())
-watch(srDrawOnChart, () => drawSRPriceLines())
+watch(srVisMinTouches, () => { saveToStorage(); drawSRPriceLines() })
+watch(srDrawOnChart, () => { saveToStorage(); drawSRPriceLines() })
+watch(currentTF, () => saveToStorage())
+// Deep watch config for auto-save
+watch(config, () => saveToStorage(), { deep: true })
 
 // ── Lifecycle ──
 onMounted(() => {
+  loadFromStorage()  // Restore saved config before anything
   initChart()
   connectWS()
   countdownInterval = setInterval(updateCountdown, 1000)
   updateCountdown()
 })
 
+onBeforeUnmount(() => {
+  // Disconnect ResizeObservers BEFORE DOM removal
+  if (chartResizeObs) { chartResizeObs.disconnect(); chartResizeObs = null }
+  if (rsiResizeObs) { rsiResizeObs.disconnect(); rsiResizeObs = null }
+  // Clear SR price lines before chart disposal
+  clearSRPriceLines()
+})
+
 onUnmounted(() => {
   if (ws) ws.close()
   if (reconnectTimer) clearTimeout(reconnectTimer)
   if (countdownInterval) clearInterval(countdownInterval)
-  if (chart) { chart.remove(); chart = null }
-  if (rsiChart) { rsiChart.remove(); rsiChart = null }
+  // Remove charts (null all refs to prevent stale access)
+  if (chart) { try { chart.remove() } catch(e) {} chart = null }
+  if (rsiChart) { try { rsiChart.remove() } catch(e) {} rsiChart = null }
+  candleSeries = null
+  ema20Line = null
+  ema50Line = null
+  ema200Line = null
+  rsiSeries = null
+  markers = []
+  srPriceLines = []
 })
 </script>

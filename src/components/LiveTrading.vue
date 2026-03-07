@@ -429,6 +429,9 @@ let candleSeries = null
 let ema20Line = null
 let ema50Line = null
 let ema200Line = null
+let elliottSeries = null
+let fiboPriceLines = []
+let allElliottData = {} // { '15m': data, '1h': data, ... }
 let rsiChart = null
 let rsiSeries = null
 let markers = []
@@ -626,6 +629,11 @@ function handleMessage(msg) {
         candleSeries.update(data)
       }
       currentPrice.value = data.close
+      break
+
+    case 'elliott_wave_update':
+      allElliottData = data
+      renderElliottWaves()
       break
 
     case 'balance':
@@ -853,6 +861,131 @@ function initRSIChart() {
   rsiResizeObs.observe(rsiChartEl.value)
 }
 
+// ── Render Elliott Waves ──────────────────────────────────────────
+function renderElliottWaves() {
+  if (!chart || !candleSeries) return
+
+  const data = allElliottData[currentTF.value]
+
+  // 1. Ensure LineSeries exists
+  if (!elliottSeries) {
+    elliottSeries = chart.addSeries(LineSeries, {
+      color: '#38bdf8', // Light blue
+      lineWidth: 2,
+      lineStyle: 0,
+      crosshairMarkerVisible: false,
+      lastValueVisible: false,
+      priceLineVisible: false
+    })
+  }
+
+  // 2. Clear old fibo lines
+  fiboPriceLines.forEach(line => candleSeries.removePriceLine(line))
+  fiboPriceLines = []
+
+  if (!data || !data.points || data.points.length === 0) {
+    elliottSeries.setData([])
+    // Clear custom markers if needed, but they are managed as part of the overall markers logic.
+    // We'll update overall markers later.
+    return
+  }
+
+  // 3. Set data for wave lines
+  const dedup = (arr) => {
+    if (!arr || !arr.length) return []
+    const map = new Map()
+    for (const item of arr) {
+      if (item.time) map.set(item.time, item)
+    }
+    return Array.from(map.values()).sort((a, b) => a.time - b.time)
+  }
+  
+  // Format data for LineSeries ({ time, value })
+  const lineData = data.points.map(p => ({ time: p.time, value: p.price }))
+  elliottSeries.setData(dedup(lineData))
+
+  // 4. Draw Fibo Targets as PriceLines
+  if (data.fibo_targets) {
+    data.fibo_targets.forEach(target => {
+      const line = candleSeries.createPriceLine({
+        price: target.price,
+        color: '#4ade80', // Green
+        lineWidth: 1,
+        lineStyle: 1, // Dashed
+        axisLabelVisible: true,
+        title: `Target ${target.level}`,
+      })
+      fiboPriceLines.push(line)
+    })
+  }
+  
+  // Also draw Invalidation Price
+  if (data.invalidation_price) {
+    const invLine = candleSeries.createPriceLine({
+      price: data.invalidation_price,
+      color: '#ef4444', // Red
+      lineWidth: 1,
+      lineStyle: 1,
+      axisLabelVisible: true,
+      title: 'Invalidation',
+    })
+    fiboPriceLines.push(invLine)
+  }
+
+  // We save the labeled points to state, so `updateChartMarkers` can pick them up
+  elliottMarkersData = data.labeled_points || []
+  updateChartMarkers()
+}
+
+// Global variable for elliott markers state
+let elliottMarkersData = []
+
+// Helper to rebuild markers including trade history + elliott labels
+function updateChartMarkers() {
+  if (!candleSeries) return
+  
+  let markers = []
+  
+  // 1. Add Trade History Markers
+  tradeHistory.value.forEach(trade => {
+    if (trade.entry_time) {
+      markers.push({
+        time: trade.entry_time,
+        position: trade.side === 'LONG' ? 'belowBar' : 'aboveBar',
+        color: trade.side === 'LONG' ? '#10b981' : '#ef4444',
+        shape: trade.side === 'LONG' ? 'arrowUp' : 'arrowDown',
+        text: `${trade.side} ${trade.symbol}`
+      })
+    }
+  })
+
+  // 2. Add Elliott Wave Labels
+  elliottMarkersData.forEach(p => {
+    markers.push({
+      time: p.time,
+      position: p.label % 2 === 0 ? 'belowBar' : 'aboveBar', // Alternate above/below
+      color: '#38bdf8',
+      shape: p.label % 2 === 0 ? 'arrowUp' : 'arrowDown',
+      text: `Wally ${p.label}` // Wave label (0, 1, 2, 3...)
+    })
+  })
+  
+  // Sort markers by time as required by lightweight-charts
+  markers.sort((a, b) => a.time - b.time)
+  
+  // Lightweight charts doesn't allow multiple markers on exactly the same timestamp (it acts weird in some versions)
+  // Let's deduplicate markers if they clash on exact TIME
+  const uniqueTime = new Map()
+  markers.forEach(m => {
+    // If a collision happens, combine text maybe, but here we'll just prioritize trade markers since they come first in map
+    if (!uniqueTime.has(m.time)) uniqueTime.set(m.time, m)
+    else uniqueTime.get(m.time).text += ` | ${m.text}`
+  })
+  
+  candleSeries.setMarkers(Array.from(uniqueTime.values()).sort((a,b) => a.time - b.time))
+}
+
+// ─────────────────────────────────────────────────────────────────
 function renderFullChart(chartData) {
   if (!candleSeries || !chartData) return
 
@@ -926,7 +1059,10 @@ watch(showRSI, async (val) => {
 })
 watch(srVisMinTouches, () => { saveToStorage(); drawSRPriceLines() })
 watch(srDrawOnChart, () => { saveToStorage(); drawSRPriceLines() })
-watch(currentTF, () => saveToStorage())
+watch(currentTF, () => { 
+  saveToStorage()
+  renderElliottWaves()
+})
 // Deep watch config for auto-save
 watch(config, () => saveToStorage(), { deep: true })
 
@@ -961,5 +1097,8 @@ onUnmounted(() => {
   rsiSeries = null
   markers = []
   srPriceLines = []
+  elliottSeries = null
+  fiboPriceLines = []
+  elliottMarkersData = []
 })
 </script>
